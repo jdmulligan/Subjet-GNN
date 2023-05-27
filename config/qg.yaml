@@ -1,0 +1,31 @@
+# Config file for jet classification
+
+#------------------------------------------------------------------
+# Note: We will read processing parameters from the loaded file, 
+# rather than from this config file.
+# See subjets_unshuffled.h5 and subjet_graphs.h5 for the set
+# of parameters that are read from the loaded file.
+#------------------------------------------------------------------
+
+#------------------------------------------------------------------
+# These following parameters are used only in ML analysis
+#------------------------------------------------------------------
+
+# Size of labeled data to load (i.e. number of jets)
+n_train: 3000
+n_val:   1000
+n_test:  1000
+
+# Which subjet collections to use
+r: [0.001]
+
+# Classification labels
+label_0: 'gluon'
+label_1: 'quark'
+
+# Select model: particle_gnn
+models: [particle_gnn]
+
+particle_gnn:
+    epochs: 20
+    batch_size: 128
