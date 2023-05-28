@@ -74,13 +74,14 @@ class SteerAnalysis(common_base.CommonBase):
         print('Running ML analysis...')
         analysis = ml_analysis.MLAnalysis(self.config_file, self.output_dir)
         graphs = data_IO.read_data(graph_file)
-        analysis.run_analysis(graphs)
+        analysis.train_models(graphs)
         print()
 
         # Plot results
         print('========================================================================')
         print('Plotting results...')
-        plot_results.plot_results()
+        plot = plot_results.PlotResults(self.config_file, self.output_dir)
+        plot.plot_results()
         print('Done!')
 
 ####################################################################################################################

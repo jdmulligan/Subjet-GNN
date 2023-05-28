@@ -38,10 +38,17 @@ def construct_graphs(input_data, config_file, output_dir):
             key_prefix = f'subjet_r{r}_N{n_subjets_total}'
 
             # Get the (z,y,phi) of subjets from the input file
-            k = 1000
-            subjet_z = input_data[f'{key_prefix}_z'][:k]
-            subjet_rap = input_data[f'{key_prefix}_sub_rap'][:k]
-            subjet_phi = input_data[f'{key_prefix}_sub_phi'][:k]
+            subjet_z = input_data[f'{key_prefix}_z']
+            subjet_rap = input_data[f'{key_prefix}_sub_rap']
+            subjet_phi = input_data[f'{key_prefix}_sub_phi']
+            labels = input_data['y']
+
+            # Shuffle the data sets, to ensure that the first N entries are not from the same class
+            idx = np.random.permutation(labels.shape[0])
+            subjet_z = subjet_z[idx]
+            subjet_rap = subjet_rap[idx]
+            subjet_phi = subjet_phi[idx]
+            labels = labels[idx]
 
             #-----------------------------------
             # Construct graphs
@@ -74,6 +81,7 @@ def construct_graphs(input_data, config_file, output_dir):
                 output_dict[f'{key_prefix}_{graph_type}_edge_connections'] = edge_connections
                 output_dict[f'{key_prefix}_{graph_type}_edge_values'] = edge_values
 
+                output_dict['labels'] = labels
                 output_dict[f'{key_prefix}_sub_z'] = subjet_z
                 output_dict[f'{key_prefix}_sub_rap'] = subjet_rap
                 output_dict[f'{key_prefix}_sub_phi'] = subjet_phi
@@ -81,7 +89,7 @@ def construct_graphs(input_data, config_file, output_dir):
     # Write dict to HDF5
     output_dict['subjet_basis'] = subjet_basis
     output_dict['r_list'] = r_list
-    output_dict['n_subjets_total'] = n_subjets_total
+    output_dict['n_subjets_total'] = N_cluster_list
     print()
     data_IO.write_data(output_dict, output_dir, filename='subjet_graphs.h5')
 
@@ -163,12 +171,14 @@ def laman_1N(subjet_z, subjet_rap, subjet_phi, n_subjets_total, n_subjets_nonzer
                     angle = delta_R(subjet_rap[0], subjet_phi[0], subjet_rap[i+1], subjet_phi[i+1])
                     edge_connections[edge_idx] = np.array([0, i+1])
                     edge_values[edge_idx] = angle
+                    edge_idx += 1
             
         elif N < n_subjets_total-1:
             if N < n_subjets_nonzero-1:
                 angle = delta_R(subjet_rap[N], subjet_phi[N], subjet_rap[N+1], subjet_phi[N+1])
                 edge_connections[edge_idx] = np.array([N, N+1])
                 edge_values[edge_idx] = angle
+                edge_idx += 1
 
     return edge_connections, edge_values
 
@@ -190,6 +200,7 @@ def laman_1N2N(subjet_z, subjet_rap, subjet_phi, n_subjets_total, n_subjets_nonz
                     angle = delta_R(subjet_rap[0], subjet_phi[0], subjet_rap[i+1], subjet_phi[i+1])
                     edge_connections[edge_idx] = np.array([0, i+1])
                     edge_values[edge_idx] = angle
+                    edge_idx += 1
 
         elif N == 1:
             for i in range(n_subjets_nonzero-2): # Because we want to start from i=2
@@ -197,6 +208,7 @@ def laman_1N2N(subjet_z, subjet_rap, subjet_phi, n_subjets_total, n_subjets_nonz
                     angle = delta_R(subjet_rap[1], subjet_phi[1], subjet_rap[i+2], subjet_phi[i+2])
                     edge_connections[edge_idx] = np.array([1, i+2])
                     edge_values[edge_idx] = angle
+                    edge_idx += 1
 
     return edge_connections, edge_values
 

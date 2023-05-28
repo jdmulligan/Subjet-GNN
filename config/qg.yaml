@@ -12,20 +12,27 @@
 #------------------------------------------------------------------
 
 # Size of labeled data to load (i.e. number of jets)
-n_train: 3000
-n_val:   1000
+n_train: 4000
+n_val:   0
 n_test:  1000
 
 # Which subjet collections to use
-r: [0.001]
+subjet_basis: 'inclusive'
+r: [0.05]
 
 # Classification labels
 label_0: 'gluon'
 label_1: 'quark'
 
-# Select model: particle_gnn
-models: [particle_gnn]
+# Select model: particle_gnn, subjet_gnn
+models: [particle_gnn, subjet_gnn]
 
 particle_gnn:
-    epochs: 20
+    graph_types: ['fully_connected']
+    epochs: 5
+    batch_size: 128
+
+subjet_gnn:
+    graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
+    epochs: 10
     batch_size: 128
