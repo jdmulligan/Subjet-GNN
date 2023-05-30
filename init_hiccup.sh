@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
-if [[ "$PATH" == *".pyenv"* ]]; then
+# On hiccup CPU, we use pyenv -- on hiccup GPU, we will use system python
+if ! lspci | grep -i 'nvidia' > /dev/null; then
     # Set up pyenv (for python version management)
     export PYENV_ROOT="/home/software/users/james/pyenv"
     export PYTHON_CONFIGURE_OPTS="--enable-shared"
