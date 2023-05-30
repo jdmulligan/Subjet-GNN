@@ -8,7 +8,8 @@ module list
 # The modulefiles automatically set the $PYTHONUSERBASE environment variable for you, 
 #   so that you will always have your custom packages every time you load that module.
 pip install --user \
-seaborn==0.11.2
+seaborn==0.11.2 \
+silx==1.1.2
 
 # The following packages are already installed by the pytorch module
 #matplotlib==3.5.1 \
