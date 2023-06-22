@@ -2,26 +2,19 @@
 
 This repository performs graph construction and trains graph neural networks to classify jets in high-energy physics.
 
-## Setup software environment – on hiccup cluster
+## Setup software environment – on hiccupgpu
 <details>
   <summary>Click for details</summary>
 <br/> 
 
 ### Logon and allocate a node
   
-Logon to hiccup:
+Logon directly to hiccupgpu:
 ```
-ssh <user>@hic.lbl.gov
+ssh hic@lbl.gov -p 1142
 ```
 
-First, request an interactive node from the slurm batch system:
-   ```
-   srun -N 1 -n 20 -t 24:00:00 -p std --pty bash
-   ``` 
-   which requests 1 full node (20 cores) for 2 hours in the `quick` queue. You can choose the time and queue: you can use the `quick` partition for up to a 2 hour session, `std` for a 24 hour session, or `long` for a 72 hour session – but you will wait longer for the longer queues). 
-Depending how busy the squeue is, you may get the node instantly, or you may have to wait awhile.
-When you’re done with your session, just type `exit`.
-Please do not run anything but the lightest tests on the login node. If you are finding that you have to wait a long time, let us know and we can take a node out of the slurm queue and logon to it directly.
+This is not yet integrated into the slurm queue on the hiccup system, so just beware that if someone else is using the system at the same time you will want to keep an extra eye on the memory consumption.
 
 ### Initialize environment
   
@@ -90,7 +83,9 @@ python analysis/steer_analysis.py -c <config> -i <input_file> -o <output_dir>
 ```
 The `-i` path should point to a file `subjets_unshuffled.h5` containing a dataset produced by the [JFN](https://github.com/jdmulligan/JFN) repository. Locations of produced datasets on hiccup and perlmutter can be found [here](https://docs.google.com/spreadsheets/d/1DI_GWwZO8sYDB9FS-rFzitoDk3SjfHfgoKVVGzG1j90).
 
-Once the graphs are constructed (by the `graph_constructor` module), they will be read from file on subsequent runs. If you would like to force recreate them, you can add the argument `--regenerate-graphs`.
+Once the graphs are constructed (by the `graph_constructor` module), they will be read from file on subsequent runs. 
+- If you would like to force recreate them, you can add the argument `--regenerate-graphs`.
+- If you would like to use graphs that were already constructed from the JFN processing script output (in the `subjets_unshuffled.h5` file), you can add the argument `--use_precomputed_graphs`.
 
 You can also re-run the plotting script after training the models, if you like:
 ```
