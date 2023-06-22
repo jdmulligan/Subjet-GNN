@@ -14,7 +14,7 @@ import data_IO
 #---------------------------------------------------------------
 # Construct graphs from input_data and write them to file
 #---------------------------------------------------------------
-def construct_graphs(input_data, config_file, output_dir):
+def construct_graphs(input_data, config_file, output_dir, use_precomputed_graphs=False):
     '''
     input_data:  dict of ndarrays storing subjet kinematics
     '''
@@ -71,7 +71,16 @@ def construct_graphs(input_data, config_file, output_dir):
                     n_edges = 2*n_subjets_total-3
                     f = laman_1N2N
 
-                edge_connections, edge_values = compute_edges(n_jets, n_subjets_total, n_edges, f, subjet_z, subjet_rap, subjet_phi)
+                #Option: If the graphs have already been constructed in the input file, then get the graphs directly
+                if use_precomputed_graphs:
+                    precomputed_graph_type = input_data['Laman_construction']
+                    if graph_type != f'laman_{precomputed_graph_type}':
+                        continue
+                    edge_connections = input_data[f'{key_prefix}_edges']
+                    edge_values = input_data[f'{key_prefix}_angles']
+                # Otherwise, construct the graphs by looping through the subjets
+                else:
+                    edge_connections, edge_values = compute_edges(n_jets, n_subjets_total, n_edges, f, subjet_z, subjet_rap, subjet_phi)
                 print(f'  {graph_type}')
                 print(f'    edge_connections: {edge_connections.shape}')
                 print(f'    edge_values: {edge_values.shape}')

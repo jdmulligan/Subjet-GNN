@@ -24,12 +24,13 @@ class SteerAnalysis(common_base.CommonBase):
     #---------------------------------------------------------------
     # Constructor
     #---------------------------------------------------------------
-    def __init__(self, input_file='', config_file='', output_dir='', regenerate_graphs=False, **kwargs):
+    def __init__(self, input_file='', config_file='', output_dir='', regenerate_graphs=False, use_precomputed_graphs=False, **kwargs):
 
         self.config_file = config_file
         self.input_file = input_file
         self.output_dir = output_dir
         self.regenerate_graphs = regenerate_graphs
+        self.use_precomputed_graphs = use_precomputed_graphs
 
         self.initialize(config_file)
 
@@ -65,7 +66,7 @@ class SteerAnalysis(common_base.CommonBase):
         print('========================================================================')
         if self.regenerate_graphs or not os.path.exists(graph_file):
             input_data = data_IO.read_data(self.input_file)
-            graph_constructor.construct_graphs(input_data, self.config_file, self.output_dir)
+            graph_constructor.construct_graphs(input_data, self.config_file, self.output_dir, self.use_precomputed_graphs)
         else:
             print(f'Graphs found: {graph_file}')
 
@@ -102,6 +103,9 @@ if __name__ == '__main__':
     parser.add_argument('--regenerate_graphs', 
                         help='construct graphs from subjets_unshuffled.h5', 
                         action='store_true', default=False)
+    parser.add_argument('--use_precomputed_graphs', 
+                        help='use graphs from subjets_unshuffled.h5', 
+                        action='store_true', default=False)
     args = parser.parse_args()
 
     # If invalid config_file or input_file is given, exit
@@ -121,7 +125,8 @@ if __name__ == '__main__':
     analysis = SteerAnalysis(input_file=args.input_file, 
                              config_file=args.config_file, 
                              output_dir=args.output_dir, 
-                             regenerate_graphs=args.regenerate_graphs)
+                             regenerate_graphs=args.regenerate_graphs,
+                             use_precomputed_graphs=args.use_precomputed_graphs)
     analysis.run_analysis()
 
     print('--- {} minutes ---'.format((time.time() - start_time)/60.))
