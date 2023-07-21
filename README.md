@@ -11,7 +11,7 @@ This repository performs graph construction and trains graph neural networks to 
   
 Logon directly to hiccupgpu:
 ```
-ssh hic@lbl.gov -p 1142
+ssh <user>@hic.lbl.gov -p 1142
 ```
 
 This is not yet integrated into the slurm queue on the hiccup system, so just beware that if someone else is using the system at the same time you will want to keep an extra eye on the memory consumption.
