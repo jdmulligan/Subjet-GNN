@@ -1,13 +1,38 @@
-# Subjet-GNN
+# Graph neural networks for high-energy physics
 
-This repository performs graph construction and trains graph neural networks to classify jets in high-energy physics.
+This repository constructs and trains graph neural networks to classify jets in high-energy physics using the "Jet Flow Network" subjet basis ([arXiv:2305.08979](https://arxiv.org/abs/2305.08979)),
+along with benchmark comparisons to alternate architectures including transformers and deep sets.
 
-## Setup software environment – on hiccupgpu
+<div align="center">
+<img src="https://github.com/jdmulligan/Subjet-GNN/assets/16219745/8dc896c6-1201-4d68-8cfa-932d1d79a2db" width="700" height="260">
+</div>  
+
+## Training the GNNs
+
+The GNNs can be constructed and trained using the following:
+```
+cd Subjet-GNN
+python analysis/steer_analysis.py -c <config> -i <input_file> -o <output_dir>
+```
+The `-i` path should point to a file `subjets_unshuffled.h5` containing a dataset produced by the [JFN](https://github.com/jdmulligan/JFN) repository. Locations of produced datasets can be found [here](https://docs.google.com/spreadsheets/d/1DI_GWwZO8sYDB9FS-rFzitoDk3SjfHfgoKVVGzG1j90).
+
+Once the graphs are constructed (by the `graph_constructor` module), they will be read from file on subsequent runs. 
+- If you would like to force recreate them, you can add the argument `--regenerate-graphs`.
+- If you would like to use graphs that were already constructed from the JFN processing script output (in the `subjets_unshuffled.h5` file), you can add the argument `--use_precomputed_graphs`.
+
+You can also re-run the plotting script after training the models, if you like:
+```
+cd Subjet-GNN
+python analysis/plot_results.py -c <config> -o <output_dir>
+```
+
+
+## Setup software environment – example: hiccup cluster
 <details>
   <summary>Click for details</summary>
 <br/> 
 
-### Logon and allocate a node
+### Logon and allocate a node – example on hiccupgpu
   
 Logon directly to hiccupgpu:
 ```
@@ -37,7 +62,7 @@ Now we are ready to run our scripts.
 
 </details>
 
-## Setup software environment – on perlmutter
+## Setup software environment – example: perlmutter cluster
 <details>
   <summary>Click for details</summary>
 <br/> 
@@ -73,22 +98,3 @@ Now we are ready to run our scripts.
 
    
 </details>
-
-## Training the GNNs
-
-The GNNs can be constructed and trained using the following:
-```
-cd Subjet-GNN
-python analysis/steer_analysis.py -c <config> -i <input_file> -o <output_dir>
-```
-The `-i` path should point to a file `subjets_unshuffled.h5` containing a dataset produced by the [JFN](https://github.com/jdmulligan/JFN) repository. Locations of produced datasets on hiccup and perlmutter can be found [here](https://docs.google.com/spreadsheets/d/1DI_GWwZO8sYDB9FS-rFzitoDk3SjfHfgoKVVGzG1j90).
-
-Once the graphs are constructed (by the `graph_constructor` module), they will be read from file on subsequent runs. 
-- If you would like to force recreate them, you can add the argument `--regenerate-graphs`.
-- If you would like to use graphs that were already constructed from the JFN processing script output (in the `subjets_unshuffled.h5` file), you can add the argument `--use_precomputed_graphs`.
-
-You can also re-run the plotting script after training the models, if you like:
-```
-cd Subjet-GNN
-python analysis/plot_results.py -c <config> -o <output_dir>
-```
