@@ -50,115 +50,32 @@ class GNN_PyTorch():
     #---------------------------------------------------------------
     def init_data(self):
         '''
-        Construct a Dataset and DataLoader for our graph data
+        Construct a Dataset and DataLoader for our graph data using PyGraph
+
+        We use sparse COO format: (n_edges, 2) array storing pairs of indices that are connected
         '''
 
-        #----------------------
-        # Load particle/subjet data and construct graphs
-        # We use sparse COO format: (n_edges, 2) array storing pairs of indices that are connected
-        graph_list = []
-
-        # Particle GNN -- load from energyflow dataset
-        # Graph structure:
-        #  - Nodes: particle four-vectors
-        #  - Edges: no edge features
-        #  - Connectivity: fully connected (TODO: implement other connectivities)
+        # Construct list of PyG graph objects
+        print('Looping through jets to construct DataLoader...')
         if self.model_info['model'] in ['particle_gcn', 'particle_gat']:
-            assert self.model_info['graph_type'] == 'fully_connected'
-
-            X, y = energyflow.qg_jets.load(self.model_info['n_total'])
-            X = X[:,:,:3]   # ignore pid information for now
-            for x in X:     # preprocess by centering jets and normalizing pts
-                mask = x[:,0] > 0
-                yphi_avg = np.average(x[mask,1:3], weights=x[mask,0], axis=0)
-                x[mask,1:3] -= yphi_avg
-                x[mask,0] /= x[:,0].sum()
-
-            # TODO: Use multiprocessing to speed up iteration over jets
-            print(f'(n_jets, n_particles, features): {X.shape}')
-            print('Looping through jets to construct DataLoader...')
-            for i, xp in enumerate(X):
-                
-                # Node features -- remove the zero pads
-                xp = xp[~np.all(xp == 0, axis=1)]
-                node_features = torch.tensor(xp,dtype=torch.float)
-
-                # Edge connectivity -- fully connected
-                adj_matrix = np.ones((xp.shape[0],xp.shape[0])) - np.identity((xp.shape[0]))
-                row, col = np.where(adj_matrix)
-                coo = np.array(list(zip(row,col)))
-                edge_indices = torch.tensor(coo)
-                edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
-
-                # Construct graph as PyG data object
-                graph_label = torch.tensor(y[i],dtype=torch.int64)
-                graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=None, y=graph_label).to(self.model_info['torch_device'])
-                graph_list.append(graph)
-
-        # Subjet GNN -- load from JFN dataset
-        # Graph structure:
-        #  - Nodes: particle four-vectors3
-        #  - Edges: pairwise angles as edge features
-        #  - Connectivity: various connectivity options (see graph_constructor.py)
+            graph_list = self._init_particle_graphs()
         elif self.model_info['model'] in ['subjet_gcn', 'subjet_gat']:
-            key_prefix = f"subjet_r{self.model_info['r']}_N{self.model_info['n_subjets_total']}"
-            graph_type = self.model_info['graph_type']
-            z = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_z'][:self.model_info['n_total']]
-            rap = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_rap'][:self.model_info['n_total']]
-            phi = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_phi'][:self.model_info['n_total']]
-            angles = self.model_info['subjet_graphs_dict'][f'{key_prefix}_{graph_type}_edge_values'][:self.model_info['n_total']]
-            edge_connections = self.model_info['subjet_graphs_dict'][f'{key_prefix}_{graph_type}_edge_connections'][:self.model_info['n_total']]
-            labels = self.model_info['subjet_graphs_dict']['labels'][:self.model_info['n_total']]
-            n_jets = z.shape[0]
-            print(f'Number of jets: {n_jets}')
-            print('Looping through jets to construct DataLoader...')
-            for i in range(n_jets):
-
-                # Node features -- remove the zero pads
-                # TODO: add rap,phi as node features, if pairwise angles are not used as edge features
-                node_mask = np.logical_not((z[i] == 0) & (rap[i] == 0) & (phi[i] == 0))
-                z_i = z[i][node_mask]
-                node_features = torch.tensor(z_i, dtype=torch.float)
-                node_features = node_features.reshape(-1,1)
-
-                # Edge connectivity and features -- remove the zero pads
-                edge_connections_i = edge_connections[i,:,:]
-                angles_i = angles[i,:]
-                edge_mask = ~np.all(edge_connections_i == [-1, -1], axis=1)
-                edge_connections_i = edge_connections_i[edge_mask]
-                angles_i = angles_i[edge_mask]
-                edge_indices = torch.tensor(edge_connections_i)
-                edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
-                edge_attr = torch.tensor(angles_i, dtype=torch.float).reshape(-1,1)  
-
-                # Construct graph as PyG data object
-                graph_label = torch.tensor(labels[i],dtype=torch.int64)
-                graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=edge_attr, y=graph_label).to(self.model_info['torch_device']) 
-                graph_list.append(graph)
-        print('Done.')
-
-        #----------------------
-        # Construct dataloader
-
-        train_dataset = graph_list[:self.model_info['n_train']]
-        test_dataset = graph_list[self.model_info['n_train']:self.model_info['n_total']]
-        print(f'Number of training graphs: {len(train_dataset)}')
-        print(f'Number of test graphs: {len(test_dataset)}')
-        print()
+            graph_list = self._init_subjet_graphs()
 
         # Construct DataLoader objects
         # PyG implements its own DataLoader that creates batches with a block-diagonal adjacency matrix,
         #   which allows different numbers of nodes/edges within each batch 
         # See: https://pytorch-geometric.readthedocs.io/en/latest/get_started/introduction.html#mini-batches
+        train_dataset = graph_list[:self.model_info['n_train']]
+        test_dataset = graph_list[self.model_info['n_train']:self.model_info['n_total']]
         train_loader = torch_geometric.loader.DataLoader(train_dataset, batch_size=self.model_info['model_settings']['batch_size'], shuffle=True)
         test_loader = torch_geometric.loader.DataLoader(test_dataset, batch_size=self.model_info['model_settings']['batch_size'], shuffle=True)
+        print('Done.')
+        print()
         print(f'Number of training graphs: {len(train_dataset)}')
         print(f'Number of test graphs: {len(test_dataset)}')
-
-        # Store the number of input features
-        example_graph = graph_list[0]
-        self.n_input_features = example_graph.num_node_features
-
+        print(f'Number of training graphs: {len(train_dataset)}')
+        print(f'Number of test graphs: {len(test_dataset)}')
         print(f'Number of features: {example_graph.num_features}')
         print(f'Number of node features: {example_graph.num_node_features}')
         print(f'Number of edge features: {example_graph.num_edge_features}')
@@ -170,11 +87,15 @@ class GNN_PyTorch():
         print(f'  Adjacency: {example_graph.edge_index.shape}')
         print()
 
+        # Store the number of input features
+        example_graph = graph_list[0]
+        self.n_input_features = example_graph.num_node_features
+
         # Check that the number of edges is as expected
         N = example_graph.num_nodes
         if self.model_info['graph_type'] == 'fully_connected':
             n_expected_edges = N*(N-1)
-        elif 'laman' in graph_type:
+        elif 'laman' in self.model_info['graph_type']:
             n_expected_edges = 2*N-3
         assert example_graph.num_edges == n_expected_edges
 
@@ -186,6 +107,94 @@ class GNN_PyTorch():
         plt.close()
 
         return train_loader, test_loader
+
+    #---------------------------------------------------------------
+    def _init_particle_graphs(self):
+        '''
+        Construct a list of PyG graphs for the particle-based GNNs from the energyflow dataset
+
+        Graph structure:
+         - Nodes: particle four-vectors
+         - Edges: no edge features
+         - Connectivity: fully connected (TODO: implement other connectivities)
+        '''
+        assert self.model_info['graph_type'] == 'fully_connected'
+
+        X, y = energyflow.qg_jets.load(self.model_info['n_total'])
+        X = X[:,:,:3]   # ignore pid information for now
+        for x in X:     # preprocess by centering jets and normalizing pts
+            mask = x[:,0] > 0
+            yphi_avg = np.average(x[mask,1:3], weights=x[mask,0], axis=0)
+            x[mask,1:3] -= yphi_avg
+            x[mask,0] /= x[:,0].sum()
+
+        # TODO: Use multiprocessing to speed up iteration over jets
+        print(f'  (n_jets, n_particles, features): {X.shape}')
+        graph_list = []
+        for i, xp in enumerate(X):
+            
+            # Node features -- remove the zero pads
+            xp = xp[~np.all(xp == 0, axis=1)]
+            node_features = torch.tensor(xp,dtype=torch.float)
+
+            # Edge connectivity -- fully connected
+            adj_matrix = np.ones((xp.shape[0],xp.shape[0])) - np.identity((xp.shape[0]))
+            row, col = np.where(adj_matrix)
+            coo = np.array(list(zip(row,col)))
+            edge_indices = torch.tensor(coo)
+            edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
+
+            # Construct graph as PyG data object
+            graph_label = torch.tensor(y[i],dtype=torch.int64)
+            graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=None, y=graph_label).to(self.model_info['torch_device'])
+            graph_list.append(graph)
+        return graph_list
+
+    #---------------------------------------------------------------
+    def _init_subjet_graphs(self):
+        '''
+        Construct a list of PyG graphs for the subjet-based GNNs, loading from JFN dataset
+ 
+        Graph structure:
+         - Nodes: particle four-vectors3
+         - Edges: pairwise angles as edge features
+         - Connectivity: various connectivity options (see graph_constructor.py)
+        '''
+        key_prefix = f"subjet_r{self.model_info['r']}_N{self.model_info['n_subjets_total']}"
+        graph_type = self.model_info['graph_type']
+        z = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_z'][:self.model_info['n_total']]
+        rap = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_rap'][:self.model_info['n_total']]
+        phi = self.model_info['subjet_graphs_dict'][f'{key_prefix}_sub_phi'][:self.model_info['n_total']]
+        angles = self.model_info['subjet_graphs_dict'][f'{key_prefix}_{graph_type}_edge_values'][:self.model_info['n_total']]
+        edge_connections = self.model_info['subjet_graphs_dict'][f'{key_prefix}_{graph_type}_edge_connections'][:self.model_info['n_total']]
+        labels = self.model_info['subjet_graphs_dict']['labels'][:self.model_info['n_total']]
+        n_jets = z.shape[0]
+        print(f'  Number of jets: {n_jets}')
+        graph_list = []
+        for i in range(n_jets):
+
+            # Node features -- remove the zero pads
+            # TODO: add rap,phi as node features, if pairwise angles are not used as edge features
+            node_mask = np.logical_not((z[i] == 0) & (rap[i] == 0) & (phi[i] == 0))
+            z_i = z[i][node_mask]
+            node_features = torch.tensor(z_i, dtype=torch.float)
+            node_features = node_features.reshape(-1,1)
+
+            # Edge connectivity and features -- remove the zero pads
+            edge_connections_i = edge_connections[i,:,:]
+            angles_i = angles[i,:]
+            edge_mask = ~np.all(edge_connections_i == [-1, -1], axis=1)
+            edge_connections_i = edge_connections_i[edge_mask]
+            angles_i = angles_i[edge_mask]
+            edge_indices = torch.tensor(edge_connections_i)
+            edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
+            edge_attr = torch.tensor(angles_i, dtype=torch.float).reshape(-1,1)  
+
+            # Construct graph as PyG data object
+            graph_label = torch.tensor(labels[i],dtype=torch.int64)
+            graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=edge_attr, y=graph_label).to(self.model_info['torch_device']) 
+            graph_list.append(graph)
+        return graph_list
 
     #---------------------------------------------------------------
     def init_model(self):
