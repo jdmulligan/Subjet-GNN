@@ -26,6 +26,14 @@ cd Subjet-GNN
 python analysis/plot_results.py -c <config> -o <output_dir>
 ```
 
+## Training different models
+
+Different architectures (transformers, deep sets) can be trained by specifying the model in the yaml config file.
+
+To include an additional architecture, you should implement the following:
+- The `model` folder contains a class for each model to handle initialization, data loading, and training: `init_model()`, `init_data()`, `train()`
+- The `architecture` folder contains architecture definitions themselves: e.g. for PyTorch `init()`, `forward()`
+- The `ml_analysis.py` module then will initialize and train the model, using the achitecture.
 
 ## Setup software environment – example: hiccup cluster
 <details>

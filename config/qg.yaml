@@ -13,8 +13,8 @@
 
 # Size of labeled data to load (i.e. number of jets)
 n_train: 4000
-n_val:   0
-n_test:  1000
+n_val:   500
+n_test:  500
 
 # Which subjet collections to use
 subjet_basis: 'inclusive'
@@ -24,15 +24,39 @@ r: [0.05]
 label_0: 'gluon'
 label_1: 'quark'
 
-# Select model: particle_gnn, subjet_gnn
-models: [particle_gnn, subjet_gnn]
+# Select model: particle_gcn, particle_gat, subjet_gcn, subjet_gat
+models: ['particle_gcn', 'particle_gat']
 
-particle_gnn:
+particle_gcn:
     graph_types: ['fully_connected']
+    edge_features: False
+    hidden_dim: 64
+    batch_size: 128
     epochs: 5
-    batch_size: 128
+    learning_rate: 0.001
 
-subjet_gnn:
-    graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
-    epochs: 10
+particle_gat:
+    graph_types: ['fully_connected']
+    edge_features: False
+    hidden_dim: 8
+    n_heads: 8
     batch_size: 128
+    epochs: 5
+    learning_rate: 0.001
+
+subjet_gcn:
+    graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
+    edge_features: False
+    hidden_dim: 64
+    batch_size: 128
+    epochs: 5
+    learning_rate: 0.001
+
+subjet_gat:
+    graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
+    edge_features: True
+    hidden_dim: 8
+    n_heads: 8
+    batch_size: 128
+    epochs: 5    
+    learning_rate: 0.001

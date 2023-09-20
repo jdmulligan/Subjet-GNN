@@ -77,8 +77,7 @@ class PlotResults(common_base.CommonBase):
         # Plot Subjet GNNs and Particle GNN
         roc_list = {}
         for model in self.roc_curve_dict.keys():
-            if model == 'particle_gnn' or 'subjet_gnn' in model:
-                roc_list[model] = self.roc_curve_dict[model]
+            roc_list[model] = self.roc_curve_dict[model]
         self.plot_roc_curves(roc_list)
 
     #--------------------------------------------------------------- 
@@ -94,7 +93,7 @@ class PlotResults(common_base.CommonBase):
         plt.grid(True)
         
         for label,value in roc_list.items():
-            if 'subjet_gnn' in label:
+            if 'subjet' in label:
                 linewidth = 2
                 alpha = 0.9
                 linestyle = self.linestyle(label)
