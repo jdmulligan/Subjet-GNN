@@ -9,6 +9,8 @@ import sys
 import yaml
 import time
 
+import torch
+
 import data_IO
 import graph_constructor
 import ml_analysis
@@ -57,25 +59,31 @@ class SteerAnalysis(common_base.CommonBase):
         Existing datasets are listed here:
         https://docs.google.com/spreadsheets/d/1DI_GWwZO8sYDB9FS-rFzitoDk3SjfHfgoKVVGzG1j90/edit#gid=0
         
-        The graph_constructor module takes subjets_unshuffled.h5 and constructs a new file
-        subjet_graphs.h5, which serves as the sole input to the ML analysis.
+        The graph_constructor module constructs the input graphs to the ML analysis:
+          - graphs_numpy_subjet.h5: builds graphs from JFN output subjets_unshuffled.h5
+          - graphs_pyg_subjet.pt: builds PyG graphs from subjet_graphs_numpy.h5
+          - graphs_pyg_particle.pt: builds PyG graphs from energyflow dataset
         '''
 
         # Check whether the graphs file has already been generated, and if not, generate it
-        graph_file = os.path.join(self.output_dir, 'subjet_graphs.h5')
+        graph_numpy_subjet_file = os.path.join(self.output_dir, 'graphs_numpy_subjet.h5')
+        graph_pyg_subjet_file = os.path.join(self.output_dir, 'graphs_pyg_subjet.pt')
+        graph_pyg_particle_file = os.path.join(self.output_dir, 'graphs_pyg_particle.pt')
         print('========================================================================')
-        if self.regenerate_graphs or not os.path.exists(graph_file):
+        if self.regenerate_graphs or not os.path.exists(graph_numpy_subjet_file) or not os.path.exists(graph_pyg_subjet_file) or not os.path.exists(graph_pyg_particle_file):
             input_data = data_IO.read_data(self.input_file)
             graph_constructor.construct_graphs(input_data, self.config_file, self.output_dir, self.use_precomputed_graphs)
         else:
-            print(f'Graphs found: {graph_file}')
+            print(f'Subjet numpy graphs found: {graph_numpy_subjet_file}')
+            print(f'Subjet pyg graphs found: {graph_pyg_subjet_file}')
+            print(f'Particle pyg graphs found: {graph_pyg_particle_file}')
 
         # Perform ML analysis, and write results to file
+        print()
         print('========================================================================')
         print('Running ML analysis...')
         analysis = ml_analysis.MLAnalysis(self.config_file, self.output_dir)
-        graphs = data_IO.read_data(graph_file)
-        analysis.train_models(graphs)
+        analysis.train_models()
         print()
 
         # Plot results
