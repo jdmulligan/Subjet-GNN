@@ -12,6 +12,8 @@ This class defines a model interface to handle initialization, data loading, and
 import os
 import time
 import pickle
+import tqdm
+import multiprocessing
 import numpy as np
 import matplotlib.pyplot as plt
 import sklearn
@@ -76,6 +78,7 @@ class GNN_PyTorch():
         print(f'Number of test graphs: {len(test_dataset)}')
         print(f'Number of training graphs: {len(train_dataset)}')
         print(f'Number of test graphs: {len(test_dataset)}')
+        example_graph = graph_list[0]
         print(f'Number of features: {example_graph.num_features}')
         print(f'Number of node features: {example_graph.num_node_features}')
         print(f'Number of edge features: {example_graph.num_edge_features}')
@@ -88,7 +91,6 @@ class GNN_PyTorch():
         print()
 
         # Store the number of input features
-        example_graph = graph_list[0]
         self.n_input_features = example_graph.num_node_features
 
         # Check that the number of edges is as expected
@@ -120,35 +122,55 @@ class GNN_PyTorch():
         '''
         assert self.model_info['graph_type'] == 'fully_connected'
 
+        # Load dataset; ignore pid information for now
         X, y = energyflow.qg_jets.load(self.model_info['n_total'])
-        X = X[:,:,:3]   # ignore pid information for now
-        for x in X:     # preprocess by centering jets and normalizing pts
+        X = X[:,:,:3]
+        print(f'  (n_jets, n_particles, features): {X.shape}')
+
+        # Preprocess by centering jets and normalizing pts
+        for x in tqdm.tqdm(X, desc='  Preprocessing jets', total=len(X)):    
             mask = x[:,0] > 0
             yphi_avg = np.average(x[mask,1:3], weights=x[mask,0], axis=0)
             x[mask,1:3] -= yphi_avg
             x[mask,0] /= x[:,0].sum()
 
-        # TODO: Use multiprocessing to speed up iteration over jets
-        print(f'  (n_jets, n_particles, features): {X.shape}')
-        graph_list = []
-        for i, xp in enumerate(X):
-            
-            # Node features -- remove the zero pads
-            xp = xp[~np.all(xp == 0, axis=1)]
-            node_features = torch.tensor(xp,dtype=torch.float)
+        # TODO: there seems to be some issue with multiprocessing and the PyG data structure
+        #       that causes "too many files" error -- for now we just use a single for loop
+        #n_processes = multiprocessing.cpu_count()
+        #print(f'  Multiprocessing with {n_processes} processes...')
+        #with multiprocessing.Pool(processes=n_processes) as pool:
+        #    args = [(x, y[i]) for i,x in enumerate(X)]
+        #    graph_list = pool.map(self._init_particle_graph, args)
 
-            # Edge connectivity -- fully connected
-            adj_matrix = np.ones((xp.shape[0],xp.shape[0])) - np.identity((xp.shape[0]))
-            row, col = np.where(adj_matrix)
-            coo = np.array(list(zip(row,col)))
-            edge_indices = torch.tensor(coo)
-            edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
-
-            # Construct graph as PyG data object
-            graph_label = torch.tensor(y[i],dtype=torch.int64)
-            graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=None, y=graph_label).to(self.model_info['torch_device'])
-            graph_list.append(graph)
+        graph_list = []       
+        args = [(x, y[i]) for i, x in enumerate(X)] 
+        for arg in tqdm.tqdm(args, desc='  Constructing PyG graphs', total=len(args)):
+            graph_list.append(self._init_particle_graph(arg))
         return graph_list
+
+    #---------------------------------------------------------------
+    @staticmethod
+    def _init_particle_graph(args):
+        '''
+        Construct a single PyG graph for the particle-based GNNs from the energyflow dataset
+        '''
+        x, label = args
+
+        # Node features -- remove the zero pads
+        x = x[~np.all(x == 0, axis=1)]
+        node_features = torch.tensor(x,dtype=torch.float)
+
+        # Edge connectivity -- fully connected
+        adj_matrix = np.ones((x.shape[0],x.shape[0])) - np.identity((x.shape[0]))
+        row, col = np.where(adj_matrix)
+        coo = np.array(list(zip(row,col)))
+        edge_indices = torch.tensor(coo)
+        edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
+
+        # Construct graph as PyG data object
+        graph_label = torch.tensor(label, dtype=torch.int64)
+        graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=None, y=graph_label)
+        return graph
 
     #---------------------------------------------------------------
     def _init_subjet_graphs(self):
@@ -169,32 +191,41 @@ class GNN_PyTorch():
         edge_connections = self.model_info['subjet_graphs_dict'][f'{key_prefix}_{graph_type}_edge_connections'][:self.model_info['n_total']]
         labels = self.model_info['subjet_graphs_dict']['labels'][:self.model_info['n_total']]
         n_jets = z.shape[0]
+
         print(f'  Number of jets: {n_jets}')
-        graph_list = []
-        for i in range(n_jets):
-
-            # Node features -- remove the zero pads
-            # TODO: add rap,phi as node features, if pairwise angles are not used as edge features
-            node_mask = np.logical_not((z[i] == 0) & (rap[i] == 0) & (phi[i] == 0))
-            z_i = z[i][node_mask]
-            node_features = torch.tensor(z_i, dtype=torch.float)
-            node_features = node_features.reshape(-1,1)
-
-            # Edge connectivity and features -- remove the zero pads
-            edge_connections_i = edge_connections[i,:,:]
-            angles_i = angles[i,:]
-            edge_mask = ~np.all(edge_connections_i == [-1, -1], axis=1)
-            edge_connections_i = edge_connections_i[edge_mask]
-            angles_i = angles_i[edge_mask]
-            edge_indices = torch.tensor(edge_connections_i)
-            edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
-            edge_attr = torch.tensor(angles_i, dtype=torch.float).reshape(-1,1)  
-
-            # Construct graph as PyG data object
-            graph_label = torch.tensor(labels[i],dtype=torch.int64)
-            graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=edge_attr, y=graph_label).to(self.model_info['torch_device']) 
-            graph_list.append(graph)
+        graph_list = []       
+        args = [(z[i], rap[i], phi[i], angles[i,:], edge_connections[i,:,:], labels[i]) for i in range(n_jets)]
+        for arg in tqdm.tqdm(args, desc='  Constructing PyG graphs', total=len(args)):
+            graph_list.append(self._init_subjet_graph(arg))
         return graph_list
+
+    #---------------------------------------------------------------
+    @staticmethod
+    def _init_subjet_graph(args):
+        '''
+        Construct a single PyG graph for the subjet-based GNNs from the JFN dataset
+        '''
+        z_i, rap_i, phi_i, angles_i, edge_connections_i, label = args
+
+        # Node features -- remove the zero pads
+        # TODO: add rap,phi as node features, if pairwise angles are not used as edge features
+        node_mask = np.logical_not((z_i == 0) & (rap_i == 0) & (phi_i == 0))
+        z_i = z_i[node_mask]
+        node_features = torch.tensor(z_i, dtype=torch.float)
+        node_features = node_features.reshape(-1,1)
+
+        # Edge connectivity and features -- remove the zero pads
+        edge_mask = ~np.all(edge_connections_i == [-1, -1], axis=1)
+        edge_connections_i = edge_connections_i[edge_mask]
+        angles_i = angles_i[edge_mask]
+        edge_indices = torch.tensor(edge_connections_i)
+        edge_indices_long = edge_indices.t().to(torch.long).view(2, -1)
+        edge_attr = torch.tensor(angles_i, dtype=torch.float).reshape(-1,1)  
+
+        # Construct graph as PyG data object
+        graph_label = torch.tensor(label,dtype=torch.int64)
+        graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=edge_attr, y=graph_label) 
+        return graph
 
     #---------------------------------------------------------------
     def init_model(self):
