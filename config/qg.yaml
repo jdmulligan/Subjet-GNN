@@ -12,9 +12,9 @@
 #------------------------------------------------------------------
 
 # Size of labeled data to load (i.e. number of jets)
-n_train: 4000
-n_val:   500
-n_test:  500
+n_train: 400000
+n_val:   50000
+n_test:  50000
 
 # Which subjet collections to use
 subjet_basis: 'inclusive'
@@ -32,7 +32,7 @@ particle_gcn:
     edge_features: False
     hidden_dim: 64
     batch_size: 128
-    epochs: 5
+    epochs: 10
     learning_rate: 0.001
 
 particle_gat:
@@ -41,7 +41,7 @@ particle_gat:
     hidden_dim: 8
     n_heads: 8
     batch_size: 128
-    epochs: 5
+    epochs: 10
     learning_rate: 0.001
 
 subjet_gcn:

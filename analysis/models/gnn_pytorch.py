@@ -73,8 +73,10 @@ class GNN_PyTorch():
                 yphi_avg = np.average(x[mask,1:3], weights=x[mask,0], axis=0)
                 x[mask,1:3] -= yphi_avg
                 x[mask,0] /= x[:,0].sum()
-            print(f'(n_jets, n_particles, features): {X.shape}')
 
+            # TODO: Use multiprocessing to speed up iteration over jets
+            print(f'(n_jets, n_particles, features): {X.shape}')
+            print('Looping through jets to construct DataLoader...')
             for i, xp in enumerate(X):
                 
                 # Node features -- remove the zero pads
@@ -109,7 +111,7 @@ class GNN_PyTorch():
             labels = self.model_info['subjet_graphs_dict']['labels'][:self.model_info['n_total']]
             n_jets = z.shape[0]
             print(f'Number of jets: {n_jets}')
-        
+            print('Looping through jets to construct DataLoader...')
             for i in range(n_jets):
 
                 # Node features -- remove the zero pads
@@ -133,49 +135,13 @@ class GNN_PyTorch():
                 graph_label = torch.tensor(labels[i],dtype=torch.int64)
                 graph = torch_geometric.data.Data(x=node_features, edge_index=edge_indices_long, edge_attr=edge_attr, y=graph_label).to(self.model_info['torch_device']) 
                 graph_list.append(graph)
+        print('Done.')
 
         #----------------------
-        # Construct batches and dataloader
-        
-        # Create PyG batch object that contains all the graphs and labels
-        graph_batch = torch_geometric.data.Batch().from_data_list(graph_list)
-        print(f'Number of graphs in PyG batch object: {graph_batch.num_graphs}')
-        print(f'Number of features: {graph_batch.num_features}')
-        print(f'Number of node features: {graph_batch.num_node_features}')
-        print(f'Number of edge features: {graph_batch.num_edge_features}')
-        print(f'Graph batch structure: {graph_batch}')
+        # Construct dataloader
 
-        # Visualize one of the jet graphs as an example
-        example_graph = graph_batch[0]
-        vis = torch_geometric.utils.convert.to_networkx(example_graph, to_undirected=True)
-        plt.figure(1,figsize=(10,10))
-        networkx.draw(vis, node_size=10, linewidths=6)
-        plt.savefig(os.path.join(self.model_info['output_dir'], f"{self.model_info['model_key']}.png"))
-        plt.close()
-
-        # Print some info about example graph
-        print(f'Example graph:')
-        #print(f'  Adjacency of first jet: {example_graph.edge_index}')
-        print(f'  Number of nodes: {example_graph.num_nodes}')
-        print(f'  Number of edges: {example_graph.num_edges}')
-        print(f'  Has self-loops: {example_graph.has_self_loops()}')
-        print(f'  Is undirected: {example_graph.is_undirected()}')
-        print()
-
-        # Check that the number of edges is as expected
-        N = example_graph.num_nodes
-        if self.model_info['graph_type'] == 'fully_connected':
-            n_expected_edges = N*(N-1)
-        elif 'laman' in graph_type:
-            n_expected_edges = 2*N-3
-        assert example_graph.num_edges == n_expected_edges
-
-        # Store the number of input features
-        self.n_input_features = example_graph.num_node_features
-
-        # Split into training and test set
-        train_dataset = graph_batch[:self.model_info['n_train']]
-        test_dataset = graph_batch[self.model_info['n_train']:self.model_info['n_total']]
+        train_dataset = graph_list[:self.model_info['n_train']]
+        test_dataset = graph_list[self.model_info['n_train']:self.model_info['n_total']]
         print(f'Number of training graphs: {len(train_dataset)}')
         print(f'Number of test graphs: {len(test_dataset)}')
         print()
@@ -186,6 +152,39 @@ class GNN_PyTorch():
         # See: https://pytorch-geometric.readthedocs.io/en/latest/get_started/introduction.html#mini-batches
         train_loader = torch_geometric.loader.DataLoader(train_dataset, batch_size=self.model_info['model_settings']['batch_size'], shuffle=True)
         test_loader = torch_geometric.loader.DataLoader(test_dataset, batch_size=self.model_info['model_settings']['batch_size'], shuffle=True)
+        print(f'Number of training graphs: {len(train_dataset)}')
+        print(f'Number of test graphs: {len(test_dataset)}')
+
+        # Store the number of input features
+        example_graph = graph_list[0]
+        self.n_input_features = example_graph.num_node_features
+
+        print(f'Number of features: {example_graph.num_features}')
+        print(f'Number of node features: {example_graph.num_node_features}')
+        print(f'Number of edge features: {example_graph.num_edge_features}')
+        print(f'  Has self-loops: {example_graph.has_self_loops()}')
+        print(f'  Is undirected: {example_graph.is_undirected()}')
+        print(f'Example graph:')
+        print(f'  Number of nodes: {example_graph.num_nodes}')
+        print(f'  Number of edges: {example_graph.num_edges}')
+        print(f'  Adjacency: {example_graph.edge_index.shape}')
+        print()
+
+        # Check that the number of edges is as expected
+        N = example_graph.num_nodes
+        if self.model_info['graph_type'] == 'fully_connected':
+            n_expected_edges = N*(N-1)
+        elif 'laman' in graph_type:
+            n_expected_edges = 2*N-3
+        assert example_graph.num_edges == n_expected_edges
+
+        # Visualize one of the jet graphs as an example
+        vis = torch_geometric.utils.convert.to_networkx(example_graph, to_undirected=True)
+        plt.figure(1,figsize=(10,10))
+        networkx.draw(vis, node_size=10, linewidths=6)
+        plt.savefig(os.path.join(self.model_info['output_dir'], f"{self.model_info['model_key']}.png"))
+        plt.close()
+
         return train_loader, test_loader
 
     #---------------------------------------------------------------
