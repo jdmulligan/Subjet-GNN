@@ -61,22 +61,18 @@ class SteerAnalysis(common_base.CommonBase):
         
         The graph_constructor module constructs the input graphs to the ML analysis:
           - graphs_numpy_subjet.h5: builds graphs from JFN output subjets_unshuffled.h5
-          - graphs_pyg_subjet.pt: builds PyG graphs from subjet_graphs_numpy.h5
-          - graphs_pyg_particle.pt: builds PyG graphs from energyflow dataset
+          - graphs_pyg_subjet__{graph_key}.pt: builds PyG graphs from subjet_graphs_numpy.h5
+          - graphs_pyg_particle__{graph_key}.pt: builds PyG graphs from energyflow dataset
         '''
 
         # Check whether the graphs file has already been generated, and if not, generate it
         graph_numpy_subjet_file = os.path.join(self.output_dir, 'graphs_numpy_subjet.h5')
-        graph_pyg_subjet_file = os.path.join(self.output_dir, 'graphs_pyg_subjet.pt')
-        graph_pyg_particle_file = os.path.join(self.output_dir, 'graphs_pyg_particle.pt')
         print('========================================================================')
-        if self.regenerate_graphs or not os.path.exists(graph_numpy_subjet_file) or not os.path.exists(graph_pyg_subjet_file) or not os.path.exists(graph_pyg_particle_file):
+        if self.regenerate_graphs or not os.path.exists(graph_numpy_subjet_file):
             input_data = data_IO.read_data(self.input_file)
             graph_constructor.construct_graphs(input_data, self.config_file, self.output_dir, self.use_precomputed_graphs)
         else:
             print(f'Subjet numpy graphs found: {graph_numpy_subjet_file}')
-            print(f'Subjet pyg graphs found: {graph_pyg_subjet_file}')
-            print(f'Particle pyg graphs found: {graph_pyg_particle_file}')
 
         # Perform ML analysis, and write results to file
         print()

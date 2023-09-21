@@ -58,9 +58,9 @@ class GNN_PyTorch():
         '''
 
         # Load PyG graphs from file
-        graph_filename = os.path.join(self.model_info['output_dir'], f"graphs_pyg_{self.model_info['model'].split('_')[0]}.pt")
-        graph_dict = torch.load(graph_filename)
-        graph_list = graph_dict[self.model_info['graph_key']]
+        
+        graph_filename = os.path.join(self.model_info['output_dir'], f"graphs_pyg_{self.model_info['graph_key']}.pt")
+        graph_list = torch.load(graph_filename)
         print(f'Loaded {len(graph_list)} graphs from file: {graph_filename}')
 
         # Construct DataLoader objects

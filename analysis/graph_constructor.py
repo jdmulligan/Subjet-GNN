@@ -3,8 +3,8 @@
 """
 The graph_constructor module constructs the input graphs to the ML analysis:
     - graphs_numpy_subjet.h5: builds graphs from JFN output subjets_unshuffled.h5
-    - graphs_pyg_subjet.pt: builds PyG graphs from subjet_graphs_numpy.h5
-    - graphs_pyg_particle.pt: builds PyG graphs from energyflow dataset
+    - graphs_pyg_subjet__{graph_key}.pt: builds PyG graphs from subjet_graphs_numpy.h5
+    - graphs_pyg_particle__{graph_key}.pt: builds PyG graphs from energyflow dataset
 """
 
 import os
@@ -45,8 +45,8 @@ def construct_graphs(input_data, config_file, output_dir, use_precomputed_graphs
 
     The graphs are saved in several formats:
       - graphs_numpy_subjet.h5: numpy arrays
-      - graphs_pyg_subjet.pt: PyG data objects
-      - graphs_pyg_particle.pt: PyG data objects
+      - graphs_pyg_subjet__{graph_key}.pt: PyG data objects
+      - graphs_pyg_particle__{graph_key}.pt: PyG data objects
     '''
     #------------------------
     # Construct subjet graphs
@@ -339,7 +339,6 @@ def _construct_subjet_graphs_pyg(output_dir, graph_structures):
     graph_filename = os.path.join(output_dir, "graphs_numpy_subjet.h5")
     subjet_graphs_dict = data_IO.read_data(graph_filename)
 
-    subjet_graphs_pyg_dict = {}
     for r in subjet_graphs_dict['r_list']:
         for n_subjets_total in subjet_graphs_dict['n_subjets_total']:
             key_prefix = f'subjet_r{r}_N{n_subjets_total}'
@@ -359,12 +358,10 @@ def _construct_subjet_graphs_pyg(output_dir, graph_structures):
                 for arg in tqdm.tqdm(args, desc=f'  Constructing PyG graphs: {graph_key}', total=len(args)):
                     graph_list.append(_construct_subjet_graph_pyg(arg))
 
-                subjet_graphs_pyg_dict[graph_key] = graph_list
-
-    # Save to file using pytorch
-    graph_filename = os.path.join(output_dir, f"graphs_pyg_subjet.pt")
-    torch.save(subjet_graphs_pyg_dict, graph_filename)
-    print(f'  Saved PyG graphs to {graph_filename}.')
+                # Save to file using pytorch (separate files for each graph type, to limit memory)
+                graph_filename = os.path.join(output_dir, f"graphs_pyg_{graph_key}.pt")
+                torch.save(graph_list, graph_filename)
+                print(f'  Saved PyG graphs to {graph_filename}.')
 
 #---------------------------------------------------------------
 def _construct_subjet_graph_pyg(args):
@@ -419,7 +416,6 @@ def _construct_particle_graphs_pyg(output_dir, graph_structures, N=500000):
         x[mask,1:3] -= yphi_avg
         x[mask,0] /= x[:,0].sum()
 
-    particle_graphs_pyg_dict = {}
     for graph_structure in graph_structures:
         graph_key = f'particle__{graph_structure}'
 
@@ -436,12 +432,10 @@ def _construct_particle_graphs_pyg(output_dir, graph_structures, N=500000):
         for arg in tqdm.tqdm(args, desc=f'  Constructing PyG graphs: {graph_key}', total=len(args)):
             graph_list.append(_construct_particle_graph_pyg(arg))
 
-        particle_graphs_pyg_dict[graph_key] = graph_list
-
-    # Save to file using pytorch
-    graph_filename = os.path.join(output_dir, f"graphs_pyg_particle.pt")
-    torch.save(particle_graphs_pyg_dict, graph_filename)
-    print(f'  Saved PyG graphs to {graph_filename}.')
+        # Save to file using pytorch
+        graph_filename = os.path.join(output_dir, f"graphs_pyg_{graph_key}.pt")
+        torch.save(graph_list, graph_filename)
+        print(f'  Saved PyG graphs to {graph_filename}.')
 
 #---------------------------------------------------------------
 def _construct_particle_graph_pyg(args):
