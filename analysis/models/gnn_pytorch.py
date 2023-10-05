@@ -11,15 +11,11 @@ This class defines a model interface to handle initialization, data loading, and
 
 import os
 import time
-import pickle
-import tqdm
-import multiprocessing
 import numpy as np
 import matplotlib.pyplot as plt
 import sklearn
 from sklearn import metrics
 
-import energyflow
 import torch
 import torch_geometric
 import networkx
@@ -58,7 +54,6 @@ class GNN_PyTorch():
         '''
 
         # Load PyG graphs from file
-        
         graph_filename = os.path.join(self.model_info['output_dir'], f"graphs_pyg_{self.model_info['graph_key']}.pt")
         graph_list = torch.load(graph_filename)
         print(f'Loaded {len(graph_list)} graphs from file: {graph_filename}')
