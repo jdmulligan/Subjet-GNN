@@ -12,9 +12,9 @@
 #------------------------------------------------------------------
 
 # Size of labeled data to load (i.e. number of jets)
-n_train: 400000
-n_val:   50000
-n_test:  50000
+n_train: 4000
+n_val:   500
+n_test:  500
 
 # Which subjet collections to use
 subjet_basis: 'inclusive'
@@ -24,10 +24,19 @@ r: [0.05]
 label_0: 'gluon'
 label_1: 'quark'
 
-# Select model: particle_gcn, particle_gat, subjet_gcn, subjet_gat
-models: ['particle_gcn', 'particle_gat']
+# Select model: particle_gcn_pytorch, particle_gat_pytorch, subjet_gcn_pytorch, subjet_gat_pytorch,
+#               particle_gcn_jax
+models: ['particle_gcn_jax', 'particle_gcn_pytorch']
 
-particle_gcn:
+particle_gcn_jax:
+    graph_types: ['fully_connected']
+    edge_features: False
+    hidden_dim: 64
+    batch_size: 1
+    epochs: 2
+    learning_rate: 0.001
+
+particle_gcn_pytorch:
     graph_types: ['fully_connected']
     edge_features: False
     hidden_dim: 64
@@ -35,7 +44,7 @@ particle_gcn:
     epochs: 10
     learning_rate: 0.001
 
-particle_gat:
+particle_gat_pytorch:
     graph_types: ['fully_connected']
     edge_features: False
     hidden_dim: 8
@@ -44,7 +53,7 @@ particle_gat:
     epochs: 10
     learning_rate: 0.001
 
-subjet_gcn:
+subjet_gcn_pytorch:
     graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
     edge_features: False
     hidden_dim: 64
@@ -52,7 +61,7 @@ subjet_gcn:
     epochs: 5
     learning_rate: 0.001
 
-subjet_gat:
+subjet_gat_pytorch:
     graph_types: ['laman_naive', 'laman_1N', 'laman_1N2N']
     edge_features: True
     hidden_dim: 8

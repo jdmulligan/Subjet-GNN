@@ -15,7 +15,7 @@ import torch
 sys.path.append('.')
 from base import common_base
 import data_IO
-from analysis.models import gnn_pytorch
+from analysis.models import gnn_pytorch, gnn_jax
 
 ################################################################
 class MLAnalysis(common_base.CommonBase):
@@ -104,7 +104,7 @@ class MLAnalysis(common_base.CommonBase):
                           'output_dir': self.output_dir}
 
             # ---------- Input: Particle four-vectors ----------
-            if model in ['particle_gcn', 'particle_gat']:
+            if model in ['particle_gcn_pytorch', 'particle_gat_pytorch']:
                 for graph_type in model_settings['graph_types']:
                     model_key = f'{model}__{graph_type}'
                     graph_key = f'particle__{graph_type}'
@@ -115,8 +115,19 @@ class MLAnalysis(common_base.CommonBase):
                     model_info_temp['graph_key'] = graph_key
                     self.AUC[model_key], self.roc_curve_dict[model_key] = gnn_pytorch.GNN_PyTorch(model_info_temp).train()
 
+            if model in ['particle_gcn_jax']:
+                for graph_type in model_settings['graph_types']:
+                    model_key = f'{model}__{graph_type}'
+                    graph_key = f'particle__{graph_type}'
+                    print(f'model_key: {model_key}')
+                    model_info_temp = model_info.copy()
+                    model_info_temp['graph_type'] = graph_type
+                    model_info_temp['model_key'] = model_key
+                    model_info_temp['graph_key'] = graph_key
+                    self.AUC[model_key], self.roc_curve_dict[model_key] = gnn_jax.GNN_JAX(model_info_temp).train()
+
             # ---------- Input: Subjet four-vectors ----------
-            if model in ['subjet_gcn', 'subjet_gat']:
+            if model in ['subjet_gcn_pytorch', 'subjet_gat_pytorch']:
                 graphs_numpy_subjet = data_IO.read_data(os.path.join(self.output_dir, 'graphs_numpy_subjet.h5'))
                 for r in self.r_list:
                     for n_subjets_total in graphs_numpy_subjet['n_subjets_total']:
@@ -131,8 +142,6 @@ class MLAnalysis(common_base.CommonBase):
                             model_info_temp['model_key'] = model_key
                             model_info_temp['graph_key'] = graph_key
                             self.AUC[model_key], self.roc_curve_dict[model_key] = gnn_pytorch.GNN_PyTorch(model_info_temp).train()
-
-            # TODO: GNNs (jax)
 
             # TODO: PFN (tensorflow)
 

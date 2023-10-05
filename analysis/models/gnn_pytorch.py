@@ -19,7 +19,7 @@ from sklearn import metrics
 import torch
 import torch_geometric
 import networkx
-from analysis.architectures import gcn, gat
+from analysis.architectures import gcn_pytorch, gat_pytorch
 
 ##################################################################
 class GNN_PyTorch():
@@ -112,12 +112,12 @@ class GNN_PyTorch():
         '''
         hidden_dim = self.model_info['model_settings']['hidden_dim']
         n_output_classes = 2
-        if self.model_info['model'] in ['particle_gcn', 'subjet_gcn']:
-            return gcn.GCN(self.n_input_features, hidden_dim, n_output_classes)
+        if self.model_info['model'] in ['particle_gcn_pytorch', 'subjet_gcn_pytorch']:
+            return gcn_pytorch.GCN(self.n_input_features, hidden_dim, n_output_classes)
         if self.model_info['model'] in ['particle_gat', 'subjet_gat']:
             n_heads = self.model_info['model_settings']['n_heads']
             edge_dimension = 1
-            return gat.GAT(self.n_input_features, hidden_dim, n_output_classes, n_heads, edge_dimension)
+            return gat_pytorch.GAT(self.n_input_features, hidden_dim, n_output_classes, n_heads, edge_dimension)
 
     #---------------------------------------------------------------
     def train(self):
